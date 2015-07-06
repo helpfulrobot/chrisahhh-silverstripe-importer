@@ -243,7 +243,7 @@ class ProxyObject implements ArrayAccess, Iterator
 	public function current()
 	{
 		if (is_array($this->data)) {
-			return isset($this->keys[$this->position]) ? $this->values[$this->keys[$this->position]] : new ProxyObject();
+			return isset($this->keys[$this->position]) ? $this->data[$this->keys[$this->position]] : new ProxyObject();
 		} else {
 			return $this->getValue();
 		}
@@ -274,7 +274,7 @@ class ProxyObject implements ArrayAccess, Iterator
 	public function valid()
 	{
 		if (is_array($this->data)) {
-			return isset($this->values[$this->position]);
+			return isset($this->keys[$this->position]);
 		}
 		return false;
 	}

@@ -34,14 +34,53 @@ class ProxyObjectTest extends SapphireTest
 		$proxyObject = new ProxyObject($values);
 		$proxyObject->Nested = $nested;
 
+        $count = 0;
 		foreach ($proxyObject as $key => $value) {
+            $count++;
 			$this->assertEquals($values[$key], $value());
 		}
 
 		foreach ($proxyObject->Nested as $key => $value) {
+            $count++;
 			$this->assertEquals($nested[$key], $value());
 		}
+        $this->assertEquals(5, $count);
 	}
+
+    /**
+     *
+     */
+    public function testIterator_SetEmptyArray_DoesNotIterate()
+    {
+        $values = array();
+        $proxyObject = new ProxyObject($values);
+
+        $this->assertTrue($proxyObject->isArray());
+        $this->assertEquals(0, $proxyObject->count());
+
+        foreach ($proxyObject as $key => $value) {
+            $this->fail('Should not iterate an empty array');
+        }
+    }
+
+    /**
+     *
+     */
+    public function testIterator_SetSingleElement_IteratesProxyValues()
+    {
+        $values = array('This is a string');
+        $proxyObject = new ProxyObject($values);
+
+        $this->assertTrue($proxyObject->isArray());
+        $this->assertEquals(1, $proxyObject->count());
+
+        $count = 0;
+        foreach ($proxyObject as $key => $value) {
+            $count++;
+            $this->assertEquals($values[0], $value());
+        }
+        $this->assertEquals(1, $count);
+    }
 
 	/**
 	 *
@@ -55,9 +94,12 @@ class ProxyObjectTest extends SapphireTest
 		);
 		$proxyObject = new ProxyObject(($values));
 
+        $count = 0;
 		foreach ($proxyObject as $key => $value) {
+            $count++;
 			$this->assertEquals($values[$key], $value());
 		}
+        $this->assertEquals(3, $count);
 	}
 
 	/**
@@ -85,7 +127,10 @@ class ProxyObjectTest extends SapphireTest
 		$this->assertEquals(2, $proxyObject->count());
 	}
 
-	public function testGetAndSet_CaseSensitivity_IgnoresCase()
+    /**
+     *
+     */
+    public function testGetAndSet_CaseSensitivity_IgnoresCase()
 	{
 		$proxyObject = new ProxyObject();
 		$proxyObject->Greeting = 'Hello World';
