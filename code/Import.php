@@ -17,6 +17,10 @@
  * add namespacing
  *
  * need to add delete if not present (including has_one && has_many etc)
+ *
+ * add support for validating data objects ??
+ *
+ * add method for reporting e.g ->report(ReportWriter $writer) and pass a ImportRecord with errors/warnings/number objs imported/number objs deleted
  */
 class Import
 {
@@ -44,6 +48,12 @@ class Import
      * @var bool
      */
     private $deleteRecords = false;
+
+	// won't touch other fields that could have values
+	/**
+	 * @var array
+     */
+	private $savedRecords = array();
 
 	/**
 	 * @param $dataObjectClass
@@ -106,7 +116,12 @@ class Import
 			$this->createObject($proxy, $fields);
 		}
 
-		return true;
+		if ($this->deleteRecords) {
+			$this->deleteUntouchedRecords();
+		}
+
+		// TODO add record method that could take a RecordWriter interface or similar
+		return $this;
 	}
 
 	/**
@@ -141,6 +156,7 @@ class Import
 		}
 
         $dataObject->write();
+		$this->savedRecords[$this->dataObjectClass][] = $dataObject->ID;
 
         $this->setGroups($proxy, $dataObject, $fields);
 	}
@@ -195,6 +211,7 @@ class Import
                 $groupObject->$field = $value;
                 $groupObject->write();
             }
+			$this->savedRecords[$class][] = $groupObject->ID;
 
             // add data object to group
             $hasMany = $groupObject->has_many();
@@ -270,16 +287,18 @@ class Import
         }
 
         if ($class = $dataObject->has_one($field)) {
-            $child = new $class();
+            $child = $dataObject->$field();
             $this->setField($child, $fieldString, $values, $uniqueField ? $fieldString : null);
+
             $child->write();
+			$this->savedRecords[$class][] = $child->ID;
             $relationshipField = $field . 'ID';
             $dataObject->$relationshipField = $child->ID;
             $dataObject->write();
         } else if ($class = $dataObject->has_many($field)) {
             while ($values) {
                 $value = array_shift($values);
-                // hack
+                // HACK
                 $child = null;
                 if (strpos($fieldString, '.') === false && $dataObject->exists()) {
                     $child = $dataObject->$field()->filter(array(
@@ -298,6 +317,7 @@ class Import
                 } else {
                     $child->write();
                 }
+				$this->savedRecords[$class][] = $child->ID;
             }
         } else {
             // error
@@ -362,4 +382,17 @@ class Import
 
         return $returnValues;
     }
+
+	/**
+	 *
+     */
+	private function deleteUntouchedRecords()
+	{
+		foreach ($this->savedRecords as $recordType => $ids) {
+			$ids = array_unique($ids);
+
+			$sql = 'DELETE FROM ' . $recordType . ' WHERE ID NOT IN (' . implode(', ', $ids) . ')';
+			DB::query($sql);
+		}
+	}
 }

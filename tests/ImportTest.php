@@ -188,6 +188,30 @@ class ImportTest extends SapphireTest
         $this->assertEmpty($values);
     }
 
+	/**
+	 *
+     */
+	public function testSelect_TwoChildFields_WritesBothFields()
+	{
+        $this->assertEquals(0, ImporterTestDataObject::get()->count());
+        $this->assertEquals(0, ImporterTestHasManyDataObject::get()->count());
+
+        $dataSource = XmlDataSource::loadFromFile($this->getFilePath('import-sample.xml'));
+
+        $import = new Import('ImporterTestDataObject');
+        $import->from($dataSource->Jobs[0]->Job)->select(array(
+			'Child.Value' => 'BulletPoints.BulletPoint',
+			'Child.OtherValue' => 'Title',
+		));
+
+		$this->assertEquals(1, ImporterTestDataObject::get()->count());
+		$this->assertEquals(1, ImporterTestHasOneDataObject::get()->count());
+
+		$record = ImporterTestDataObject::get()->first();
+		$this->assertEquals('Thrilling Partnership', $record->Child()->Value);
+		$this->assertEquals('Sample Job', $record->Child()->OtherValue);
+	}
+
     /**
      *
      */
@@ -356,6 +380,7 @@ class ImportTest extends SapphireTest
         $this->assertEquals(3, $obj->Children()->Count());
 
 
+		$dataSource = XmlDataSource::loadFromFile($this->getFilePath('import-sample3.xml'));
         $import = new Import('ImporterTestDataObject');
         $import->from($dataSource->Jobs[0]->Job)
             ->unique('UniqueID', 'Children.Value')
@@ -372,12 +397,11 @@ class ImportTest extends SapphireTest
         $obj = $objects[0];
         $this->assertEquals('Sample Job 1', $obj->Value);
         $this->assertEquals(3, $obj->Children()->Count());
-        $this->assertEquals('CHANGED', $obj->Children()[1]->Value);
+        $this->assertEquals('CHANGED', $obj->Children()[2]->Value);
 
         $obj = $objects[1];
         $this->assertEquals('Sample Job 2', $obj->Value);
         $this->assertEquals(2, $obj->Children()->Count());
-
     }
 
     /**
