@@ -9,6 +9,7 @@ class ImporterTestDataObject extends DataObject
      * @var array
      */
     private static $db = array(
+        'UniqueID' => 'Varchar(255)',
         'Value' => 'Varchar(255)',
     );
 

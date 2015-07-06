@@ -213,6 +213,9 @@ class ImportTest extends SapphireTest
         $this->assertEquals('IT', $record->Category()->Title);
     }
 
+    /**
+     *
+     */
     public function testGroup_SubGroup_CreatesGroupAndSubGroup()
     {
         $this->assertEquals(0, ImporterTestDataObject::get()->count());
@@ -251,6 +254,76 @@ class ImportTest extends SapphireTest
         $this->assertEquals('IT', $subCategory->Category()->Title);
         $this->assertEquals(1, $subCategory->Items()->count());
         $this->assertEquals('Sample Job', $subCategory->Items()->first()->Value);
+    }
+
+    /**
+     *
+     */
+    public function testUnique_ImportTwiceWithUniqueID_CreatesOneDataObject()
+    {
+        $this->assertEquals(0, ImporterTestDataObject::get()->count());
+
+        $dataSource = XmlDataSource::loadFromFile($this->getFilePath('import-sample.xml'));
+
+        $import = new Import('ImporterTestDataObject');
+        $import->from($dataSource->Jobs[0]->Job)
+            ->unique('UniqueID')
+            ->select(array(
+                'UniqueID' => 'jid',
+                'Value' => 'Title',
+            ));
+
+        $this->assertEquals(1, ImporterTestDataObject::get()->count());
+        $this->assertEquals('100000', ImporterTestDataObject::get()->first()->UniqueID);
+
+        $import = new Import('ImporterTestDataObject');
+        $import->from($dataSource->Jobs[0]->Job)
+            ->unique('UniqueID')
+            ->select(array(
+                'UniqueID' => 'jid',
+                'Value' => 'Title',
+            ));
+
+        $this->assertEquals(1, ImporterTestDataObject::get()->count());
+        $this->assertEquals('100000', ImporterTestDataObject::get()->first()->UniqueID);
+    }
+
+    /**
+     *
+     */
+    public function testUnique_ImportTwiceWithUniqueHasMany_CreatesUniqueChildren()
+    {
+        $this->assertEquals(0, ImporterTestDataObject::get()->count());
+
+        $dataSource = XmlDataSource::loadFromFile($this->getFilePath('import-sample.xml'));
+
+        $import = new Import('ImporterTestDataObject');
+        $import->from($dataSource->Jobs[0]->Job)
+            ->unique('UniqueID', 'Children.Value')
+            ->select(array(
+                'UniqueID' => 'jid',
+                'Value' => 'Title',
+                'Children.Value' => 'BulletPoints.BulletPoint',
+            ));
+
+        $object = ImporterTestDataObject::get()->first();
+        $this->assertEquals(1, ImporterTestDataObject::get()->count());
+        $this->assertEquals('100000', $object->UniqueID);
+        $this->assertEquals(3, $object->Children()->count());
+
+        $import = new Import('ImporterTestDataObject');
+        $import->from($dataSource->Jobs[0]->Job)
+            ->unique('UniqueID', 'Children.Value')
+            ->select(array(
+                'UniqueID' => 'jid',
+                'Value' => 'Title',
+                'Children.Value' => 'BulletPoints.BulletPoint',
+            ));
+
+        $object = ImporterTestDataObject::get()->first();
+        $this->assertEquals(1, ImporterTestDataObject::get()->count());
+        $this->assertEquals('100000', $object->UniqueID);
+        $this->assertEquals(3, $object->Children()->count());
     }
 
     /**

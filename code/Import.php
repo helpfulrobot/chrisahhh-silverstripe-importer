@@ -2,7 +2,10 @@
 
 /**
  * Class Import
- * LIMITATION: cannot set multiple properties on the same has_many data object
+ * LIMITATIONS:
+ * - cannot set multiple properties on the same has_many data object
+ * - does not support unique nested fields e.g HasOne.FieldName
+ *
  * TODO:
  * either change to pre process and group select fields
  * or change the fields syntax
@@ -12,6 +15,8 @@
  * add many_many relationship support
  *
  * add namespacing
+ *
+ * need to add delete if not present (including has_one && has_many etc)
  */
 class Import
 {
@@ -113,7 +118,11 @@ class Import
             } else {
                 $values = $this->getProxyFieldValues($proxy, $proxyField);
             }
-            $this->setField($dataObject, $field, $values);
+            if (in_array($field, $this->uniqueFields)) {
+                $this->setField($dataObject, $field, $values, $field);
+            } else {
+                $this->setField($dataObject, $field, $values);
+            }
 		}
 
         $dataObject->write();
@@ -196,6 +205,7 @@ class Import
 
 
 	/**
+     * used to find the imported DataObject, e.g not relations
 	 * @param $proxy
      * @param $fields
 	 * @return mixed
@@ -204,9 +214,20 @@ class Import
 	{
 		$filters = array();
 
+        $uniqueFields = array();
+        foreach ($this->uniqueFields as $field) {
+            if (strpos($field, '.') === false) {
+                $uniqueFields[] = $field;
+            }
+        }
+
+        if (empty($uniqueFields)) {
+            return null;
+        }
+
 		foreach ($this->uniqueFields as $field) {
             if (isset($fields[$field])) {
-                $values = $this->getProxyFieldValues($proxy, $field);
+                $values = $this->getProxyFieldValues($proxy, $fields[$field]);
                 $filters[$field] = empty($values) ? null : $values[0];
             } else {
                 // throw error, field does not exist
@@ -222,7 +243,7 @@ class Import
      * @param $fieldString
      * @param $values
      */
-    private function setField($dataObject, $fieldString, &$values)
+    private function setField($dataObject, $fieldString, &$values, $uniqueField = null)
     {
         $fields = explode('.', $fieldString);
         $field = array_shift($fields);
@@ -235,7 +256,7 @@ class Import
 
         if ($class = $dataObject->has_one($field)) {
             $child = new $class();
-            $this->setField($child, $fieldString, $values);
+            $this->setField($child, $fieldString, $values, $uniqueField ? $fieldString : null);
             $child->write();
             $relationshipField = $field . 'ID';
             $dataObject->$relationshipField = $child->ID;
@@ -243,10 +264,25 @@ class Import
         } else if ($class = $dataObject->has_many($field)) {
             while ($values) {
                 $value = array_shift($values);
-                $child = new $class();
+                // hack
+                $child = null;
+                if (strpos($fieldString, '.') === false && $dataObject->exists()) {
+                    $child = $dataObject->$field()->filter(array(
+                        $fieldString => $value,
+                    ))->first();
+                }
+                if (!$child) {
+                    $child = new $class();
+                }
                 $value = array($value);
-                $this->setField($child, $fieldString, $value);
-                $dataObject->$field()->add($child);
+                $this->setField($child, $fieldString, $value, $uniqueField ? $fieldString : null);
+
+                // TODO check if required
+                if (!$child->exists()) {
+                    $dataObject->$field()->add($child);
+                } else {
+                    $child->write();
+                }
             }
         } else {
             // error
