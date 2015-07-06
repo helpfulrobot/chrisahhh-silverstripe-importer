@@ -2,6 +2,16 @@
 
 /**
  * Class Import
+ * LIMITATION: cannot set multiple properties on the same has_many data object
+ * TODO:
+ * either change to pre process and group select fields
+ * or change the fields syntax
+ * to handle multiple properties for has_many relationships
+ * (could change the group syntax to this afterwards)
+ *
+ * add many_many relationship support
+ *
+ * add namespacing
  */
 class Import
 {
@@ -18,7 +28,7 @@ class Import
 	/**
 	 * @var
      */
-	private $groups;
+	private $groups = array();
 
     /**
      * @var array
@@ -92,6 +102,11 @@ class Import
 		}
 
 		foreach ($fields as $field => $proxyField) {
+            // skip group fields as they are set later
+            if (in_array($field, $this->groups)) {
+                continue;
+            }
+
             if (is_callable($proxyField)) {
                 $result = $proxyField($proxy, $dataObject);
                 $values = is_array($result) ? $result : array($result);
@@ -101,8 +116,84 @@ class Import
             $this->setField($dataObject, $field, $values);
 		}
 
-		$dataObject->write();
+        $dataObject->write();
+
+        $this->setGroups($proxy, $dataObject, $fields);
 	}
+
+    /**
+     * @param ProxyObject $proxy
+     * @param DataObject $dataObject
+     * @param $selectFields
+     */
+    private function setGroups(ProxyObject $proxy, DataObject $dataObject, $selectFields)
+    {
+        if (empty($this->groups)) {
+            return;
+        }
+
+        $parentObject = null;
+        foreach ($this->groups as $group) {
+            $fields = explode('.', $group);
+            if (count($fields) !== 2) {
+                // TODO move to validation in ->group()
+                error_log('Group must be of format [has_one].[has_one->FieldName]');
+                break;
+            }
+
+            $class = $dataObject->has_one($fields[0]);
+            if (!$class) {
+                error_log('Group is not a valid has_one');
+                break;
+            }
+
+            if (!isset($selectFields[$group])) {
+                error_log('Group must have a corresponding column in select');
+                break;
+            }
+
+            $values = $this->getProxyFieldValues($proxy, $selectFields[$group]);
+            if (empty($values)) {
+                // warning
+                error_log('Group does not have a value');
+                break;
+            }
+
+            $field = $fields[1];
+            $value = $values[0];
+
+            $groupObject = $class::get()->filter(array(
+                $field => $value
+            ))->first();
+
+            if (!$groupObject) {
+                $groupObject = new $class();
+                $groupObject->$field = $value;
+                $groupObject->write();
+            }
+
+            // add data object to group
+            $hasMany = $groupObject->has_many();
+            $hasMany = array_flip($hasMany);
+
+            if (isset($hasMany[$dataObject->ClassName])) {
+                $collection = $hasMany[$dataObject->ClassName];
+                $groupObject->$collection()->add($dataObject);
+            }
+
+            // set parent group, when multiple groups
+            if ($parentObject) {
+                $hasMany = $parentObject->has_many();
+                $hasMany = array_flip($hasMany);
+                if (isset($hasMany[$groupObject->ClassName])) {
+                    $collection = $hasMany[$groupObject->ClassName];
+                    $parentObject->$collection()->add($groupObject);
+                }
+            }
+            $parentObject = $groupObject;
+        }
+    }
+
 
 	/**
 	 * @param $proxy

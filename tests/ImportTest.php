@@ -189,6 +189,71 @@ class ImportTest extends SapphireTest
     }
 
     /**
+     *
+     */
+    public function testGroup_OneGroup_CreatesGroup()
+    {
+        $this->assertEquals(0, ImporterTestDataObject::get()->count());
+        $this->assertEquals(0, ImporterTestCategoryDataObject::get()->count());
+
+        $dataSource = XmlDataSource::loadFromFile($this->getFilePath('import-sample.xml'));
+
+        $import = new Import('ImporterTestDataObject');
+        $import->from($dataSource->Jobs[0]->Job)
+            ->group('Category.Title')
+            ->select(array(
+                'Children.Value' => 'Title',
+                'Category.Title' => 'Classifications.Classification[name=Category]',
+            ));
+
+        $this->assertEquals(1, ImporterTestDataObject::get()->count());
+        $this->assertEquals(1, ImporterTestCategoryDataObject::get()->count());
+        $record = ImporterTestDataObject::get()->first();
+        $this->assertNotNull($record);
+        $this->assertEquals('IT', $record->Category()->Title);
+    }
+
+    public function testGroup_SubGroup_CreatesGroupAndSubGroup()
+    {
+        $this->assertEquals(0, ImporterTestDataObject::get()->count());
+        $this->assertEquals(0, ImporterTestCategoryDataObject::get()->count());
+        $this->assertEquals(0, ImporterTestSubCategoryDataObject::get()->count());
+
+        $dataSource = XmlDataSource::loadFromFile($this->getFilePath('import-sample.xml'));
+
+        $import = new Import('ImporterTestDataObject');
+        $import->from($dataSource->Jobs[0]->Job)
+            ->group('Category.Title', 'SubCategory.Title')
+            ->select(array(
+                'Value' => 'Title',
+                'Category.Title' => 'Classifications.Classification[name=Category]',
+                'SubCategory.Title' => 'Classifications.Classification[name=Sub Category]',
+            ));
+
+        $this->assertEquals(1, ImporterTestDataObject::get()->count());
+        $this->assertEquals(1, ImporterTestCategoryDataObject::get()->count());
+        $this->assertEquals(1, ImporterTestSubCategoryDataObject::get()->count());
+
+        $record = ImporterTestDataObject::get()->first();
+        $this->assertNotNull($record);
+        $this->assertEquals('IT', $record->Category()->Title);
+        $this->assertEquals('Architect', $record->SubCategory()->Title);
+
+        $category = ImporterTestCategoryDataObject::get()->first();
+        $this->assertNotNull($category);
+        $this->assertEquals(1, $category->SubCategories()->count());
+        $this->assertEquals('Architect', $category->SubCategories()->first()->Title);
+        $this->assertEquals(1, $category->Items()->count());
+        $this->assertEquals('Sample Job', $category->Items()->first()->Value);
+
+        $subCategory = ImporterTestSubCategoryDataObject::get()->first();
+        $this->assertNotNull($subCategory);
+        $this->assertEquals('IT', $subCategory->Category()->Title);
+        $this->assertEquals(1, $subCategory->Items()->count());
+        $this->assertEquals('Sample Job', $subCategory->Items()->first()->Value);
+    }
+
+    /**
      * @param $fileName
      * @return string
      */
