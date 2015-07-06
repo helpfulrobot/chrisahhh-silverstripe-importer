@@ -327,6 +327,60 @@ class ImportTest extends SapphireTest
     }
 
     /**
+     *
+     */
+    public function testRemoveIfNotFound_ImportTwice_DeletesOldRecords()
+    {
+        $this->assertEquals(0, ImporterTestDataObject::get()->count());
+        $dataSource = XmlDataSource::loadFromFile($this->getFilePath('import-sample2.xml'));
+
+        $import = new Import('ImporterTestDataObject');
+        $import->from($dataSource->Jobs[0]->Job)
+            ->unique('UniqueID', 'Children.Value')
+            ->select(array(
+                'UniqueID' => 'jid',
+                'Value' => 'Title',
+                'Children.Value' => 'BulletPoints.BulletPoint',
+            ));
+
+        $this->assertEquals(3, ImporterTestDataObject::get()->count());
+
+        $objects = ImporterTestDataObject::get();
+        $obj = $objects[0];
+        $this->assertEquals('Sample Job 1', $obj->Value);
+        $this->assertEquals(3, $obj->Children()->Count());
+        $this->assertEquals('Convenient Sydney CBD location', $obj->Children()[1]->Value);
+
+        $obj = $objects[1];
+        $this->assertEquals('Sample Job 2', $obj->Value);
+        $this->assertEquals(3, $obj->Children()->Count());
+
+
+        $import = new Import('ImporterTestDataObject');
+        $import->from($dataSource->Jobs[0]->Job)
+            ->unique('UniqueID', 'Children.Value')
+            ->deleteOldRecords()
+            ->select(array(
+                'UniqueID' => 'jid',
+                'Value' => 'Title',
+                'Children.Value' => 'BulletPoints.BulletPoint',
+            ));
+
+        $this->assertEquals(2, ImporterTestDataObject::get()->count());
+
+        $objects = ImporterTestDataObject::get();
+        $obj = $objects[0];
+        $this->assertEquals('Sample Job 1', $obj->Value);
+        $this->assertEquals(3, $obj->Children()->Count());
+        $this->assertEquals('CHANGED', $obj->Children()[1]->Value);
+
+        $obj = $objects[1];
+        $this->assertEquals('Sample Job 2', $obj->Value);
+        $this->assertEquals(2, $obj->Children()->Count());
+
+    }
+
+    /**
      * @param $fileName
      * @return string
      */

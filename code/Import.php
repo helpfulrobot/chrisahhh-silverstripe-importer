@@ -40,6 +40,11 @@ class Import
      */
     private $uniqueFields = array();
 
+    /**
+     * @var bool
+     */
+    private $deleteRecords = false;
+
 	/**
 	 * @param $dataObjectClass
      */
@@ -73,6 +78,16 @@ class Import
     public function unique()
     {
         $this->uniqueFields = array_merge($this->uniqueFields, func_get_args());
+        return $this;
+    }
+
+    /**
+     * @param bool $remove
+     * @return $this
+     */
+    public function deleteOldRecords($remove = true)
+    {
+        $this->deleteRecords = $remove;
         return $this;
     }
 

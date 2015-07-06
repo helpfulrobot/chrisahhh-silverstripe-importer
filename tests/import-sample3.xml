@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Jobs>
+    <Job jid="100000" reference="sample001">
+        <Title>Sample Job 1</Title>
+        <BulletPoints>
+            <BulletPoint>Thrilling Partnership</BulletPoint>
+            <BulletPoint>CHANGED</BulletPoint>
+            <BulletPoint>Remarkable Career Opportunity</BulletPoint>
+        </BulletPoints>
+    </Job>
+    <Job jid="100001" reference="sample002">
+        <Title>Sample Job 2</Title>
+        <BulletPoints>
+            <BulletPoint>abc</BulletPoint>
+            <BulletPoint>yellow</BulletPoint>
+        </BulletPoints>
+    </Job>
+</Jobs>
