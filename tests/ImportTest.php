@@ -405,6 +405,29 @@ class ImportTest extends SapphireTest
     }
 
     /**
+     *
+     */
+    public function testModify_SetValue_WritesValue()
+    {
+        $this->assertEquals(0, ImporterTestDataObject::get()->count());
+        $dataSource = XmlDataSource::loadFromFile($this->getFilePath('import-sample.xml'));
+
+        $import = new Import('ImporterTestDataObject');
+        $import->from($dataSource->Jobs[0]->Job)
+            ->modify(function ($dataObject, $proxy) {
+                $dataObject->Value = $proxy->Title[0]->getValue();
+            })
+            ->select(array(
+                'UniqueID' => 'jid',
+            ));
+
+        $this->assertEquals(1, ImporterTestDataObject::get()->count());
+        $object = ImporterTestDataObject::get()->first();
+        $this->assertNotNull($object);
+        $this->assertEquals('Sample Job', $object->Value);
+    }
+
+    /**
      * @param $fileName
      * @return string
      */

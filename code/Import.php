@@ -21,23 +21,25 @@
  * add support for validating data objects ??
  *
  * add method for reporting e.g ->report(ReportWriter $writer) and pass a ImportRecord with errors/warnings/number objs imported/number objs deleted
+ *
+ * change deleteOldRecords to take an array of classNames that are to be deleted, or defaults to all touched
  */
 class Import
 {
-	/**
-	 * @var
+    /**
+     * @var
      */
-	private $dataObjectClass;
+    private $dataObjectClass;
 
-	/**
-	 * @var
+    /**
+     * @var
      */
-	private $proxy;
+    private $proxy;
 
-	/**
-	 * @var
+    /**
+     * @var
      */
-	private $groups = array();
+    private $groups = array();
 
     /**
      * @var array
@@ -49,38 +51,43 @@ class Import
      */
     private $deleteRecords = false;
 
-	// won't touch other fields that could have values
-	/**
-	 * @var array
+    // won't touch other fields that could have values
+    /**
+     * @var array
      */
-	private $savedRecords = array();
+    private $savedRecords = array();
 
-	/**
-	 * @param $dataObjectClass
+    /**
+     * @var array
      */
-	public function __construct($dataObjectClass)
-	{
-		$this->dataObjectClass = $dataObjectClass;
-	}
+    private $modifyCallbacks = array();
 
-	/**
-	 * @param ProxyObject $proxy
-	 * @return $this
+    /**
+     * @param $dataObjectClass
      */
-	public function from(ProxyObject $proxy)
-	{
-		$this->proxy = $proxy;
-		return $this;
-	}
+    public function __construct($dataObjectClass)
+    {
+        $this->dataObjectClass = $dataObjectClass;
+    }
 
-	/**
-	 * @return $this
+    /**
+     * @param ProxyObject $proxy
+     * @return $this
      */
-	public function group()
-	{
-		$this->groups = func_get_args();
-		return $this;
-	}
+    public function from(ProxyObject $proxy)
+    {
+        $this->proxy = $proxy;
+        return $this;
+    }
+
+    /**
+     * @return $this
+     */
+    public function group()
+    {
+        $this->groups = func_get_args();
+        return $this;
+    }
 
     /**
      * @return $this
@@ -88,6 +95,16 @@ class Import
     public function unique()
     {
         $this->uniqueFields = array_merge($this->uniqueFields, func_get_args());
+        return $this;
+    }
+
+    /**
+     * @param callable $fn
+     * @return $this
+     */
+    public function modify(callable $fn)
+    {
+        $this->modifyCallbacks[] = $fn;
         return $this;
     }
 
@@ -101,42 +118,42 @@ class Import
         return $this;
     }
 
-	/**
-	 * @param $fields
-	 * @return mixed
+    /**
+     * @param $fields
+     * @return mixed
      */
-	public function select($fields)
-	{
-		if (!$this->proxy->isArray()) {
-			error_log('Data source is not an array');
-			return false;
-		}
+    public function select($fields)
+    {
+        if (!$this->proxy->isArray()) {
+            error_log('Data source is not an array');
+            return false;
+        }
 
-		foreach ($this->proxy as $proxy) {
-			$this->createObject($proxy, $fields);
-		}
+        foreach ($this->proxy as $proxy) {
+            $this->createObject($proxy, $fields);
+        }
 
-		if ($this->deleteRecords) {
-			$this->deleteUntouchedRecords();
-		}
+        if ($this->deleteRecords) {
+            $this->deleteUntouchedRecords();
+        }
 
-		// TODO add record method that could take a RecordWriter interface or similar
-		return $this;
-	}
+        // TODO add record method that could take a RecordWriter interface or similar
+        return $this;
+    }
 
-	/**
-	 * @param ProxyObject $proxy
-	 * @param $fields
+    /**
+     * @param ProxyObject $proxy
+     * @param $fields
      */
-	private function createObject(ProxyObject $proxy, $fields)
-	{
-		$dataObject = $this->findDataObject($proxy, $fields);
-		if (!$dataObject) {
-			$class = $this->dataObjectClass;
-			$dataObject = new $class;
-		}
+    private function createObject(ProxyObject $proxy, $fields)
+    {
+        $dataObject = $this->findDataObject($proxy, $fields);
+        if (!$dataObject) {
+            $class = $this->dataObjectClass;
+            $dataObject = new $class;
+        }
 
-		foreach ($fields as $field => $proxyField) {
+        foreach ($fields as $field => $proxyField) {
             // skip group fields as they are set later
             if (in_array($field, $this->groups)) {
                 continue;
@@ -153,13 +170,18 @@ class Import
             } else {
                 $this->setField($dataObject, $field, $values);
             }
-		}
+        }
 
-        $dataObject->write();
-		$this->savedRecords[$this->dataObjectClass][] = $dataObject->ID;
+        $this->write($dataObject);
+        $this->savedRecords[$this->dataObjectClass][] = $dataObject->ID;
+
+        foreach ($this->modifyCallbacks as $callback) {
+            $callback($dataObject, $proxy);
+            $this->write($dataObject);
+        }
 
         $this->setGroups($proxy, $dataObject, $fields);
-	}
+    }
 
     /**
      * @param ProxyObject $proxy
@@ -209,9 +231,9 @@ class Import
             if (!$groupObject) {
                 $groupObject = new $class();
                 $groupObject->$field = $value;
-                $groupObject->write();
+                $this->write($groupObject);
             }
-			$this->savedRecords[$class][] = $groupObject->ID;
+            $this->savedRecords[$class][] = $groupObject->ID;
 
             // add data object to group
             $hasMany = $groupObject->has_many();
@@ -236,15 +258,15 @@ class Import
     }
 
 
-	/**
+    /**
      * used to find the imported DataObject, e.g not relations
-	 * @param $proxy
+     * @param $proxy
      * @param $fields
-	 * @return mixed
+     * @return mixed
      */
-	private function findDataObject(ProxyObject $proxy, $fields)
-	{
-		$filters = array();
+    private function findDataObject(ProxyObject $proxy, $fields)
+    {
+        $filters = array();
 
         $uniqueFields = array();
         foreach ($this->uniqueFields as $field) {
@@ -257,18 +279,18 @@ class Import
             return null;
         }
 
-		foreach ($this->uniqueFields as $field) {
+        foreach ($this->uniqueFields as $field) {
             if (isset($fields[$field])) {
                 $values = $this->getProxyFieldValues($proxy, $fields[$field]);
                 $filters[$field] = empty($values) ? null : $values[0];
             } else {
                 // throw error, field does not exist
             }
-		}
+        }
 
-		$class = $this->dataObjectClass;
-		return $class::get()->filter($filters)->first();
-	}
+        $class = $this->dataObjectClass;
+        return $class::get()->filter($filters)->first();
+    }
 
     /**
      * @param $dataObject
@@ -290,11 +312,11 @@ class Import
             $child = $dataObject->$field();
             $this->setField($child, $fieldString, $values, $uniqueField ? $fieldString : null);
 
-            $child->write();
-			$this->savedRecords[$class][] = $child->ID;
+            $this->write($child);
+            $this->savedRecords[$class][] = $child->ID;
             $relationshipField = $field . 'ID';
             $dataObject->$relationshipField = $child->ID;
-            $dataObject->write();
+            $this->write($dataObject);
         } else if ($class = $dataObject->has_many($field)) {
             while ($values) {
                 $value = array_shift($values);
@@ -315,9 +337,9 @@ class Import
                 if (!$child->exists()) {
                     $dataObject->$field()->add($child);
                 } else {
-                    $child->write();
+                    $this->write($child);
                 }
-				$this->savedRecords[$class][] = $child->ID;
+                $this->savedRecords[$class][] = $child->ID;
             }
         } else {
             // error
@@ -383,16 +405,27 @@ class Import
         return $returnValues;
     }
 
-	/**
-	 *
+    /**
+     *
      */
-	private function deleteUntouchedRecords()
-	{
-		foreach ($this->savedRecords as $recordType => $ids) {
-			$ids = array_unique($ids);
+    private function deleteUntouchedRecords()
+    {
+        // will not delete parent tables
+        foreach ($this->savedRecords as $recordType => $ids) {
+            $ids = array_unique($ids);
 
-			$sql = 'DELETE FROM ' . $recordType . ' WHERE ID NOT IN (' . implode(', ', $ids) . ')';
-			DB::query($sql);
-		}
-	}
+            $sql = 'DELETE FROM ' . $recordType . ' WHERE ID NOT IN (' . implode(', ', $ids) . ')';
+            DB::query($sql);
+        }
+    }
+
+    private function write(DataObject $dataObject)
+    {
+        Versioned::reading_stage('Stage');
+        $dataObject->write();
+        if ($dataObject instanceof SiteTree) {
+            $dataObject->publish('Stage', 'Live');
+        }
+        Versioned::reading_stage('Live');
+    }
 }
