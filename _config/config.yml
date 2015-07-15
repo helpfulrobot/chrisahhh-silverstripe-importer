@@ -2,3 +2,4 @@
 Name: silverstripe-importer-config
 ---
 
+suppress_warning: true
