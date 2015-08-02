@@ -199,25 +199,25 @@ class Import
             $fields = explode('.', $group);
             if (count($fields) !== 2) {
                 // TODO move to validation in ->group()
-                error_log('Group must be of format [has_one].[has_one->FieldName]');
+                error_log('WARNING: Group must be of format [has_one].[has_one->FieldName]');
                 break;
             }
 
             $class = $dataObject->has_one($fields[0]);
             if (!$class) {
-                error_log('Group is not a valid has_one');
+                error_log('WARNING: Group is not a valid has_one');
                 break;
             }
 
             if (!isset($selectFields[$group])) {
-                error_log('Group must have a corresponding column in select');
+                error_log('WARNING: Group must have a corresponding column in select');
                 break;
             }
 
             $values = $this->getProxyFieldValues($proxy, $selectFields[$group]);
             if (empty($values)) {
                 // warning
-                error_log('Group does not have a value');
+                error_log('WARNING: Group does not have a value');
                 break;
             }
 
@@ -279,8 +279,11 @@ class Import
             return null;
         }
 
+        $class = $this->dataObjectClass;
+
+        $dbFields = DataObject::custom_database_fields($class);
         foreach ($this->uniqueFields as $field) {
-            if (isset($fields[$field])) {
+            if (isset($fields[$field]) && isset($dbFields[$field])) {
                 $values = $this->getProxyFieldValues($proxy, $fields[$field]);
                 $filters[$field] = empty($values) ? null : $values[0];
             } else {
@@ -288,7 +291,6 @@ class Import
             }
         }
 
-        $class = $this->dataObjectClass;
         return $class::get()->filter($filters)->first();
     }
 
@@ -413,9 +415,16 @@ class Import
         // will not delete parent tables
         foreach ($this->savedRecords as $recordType => $ids) {
             $ids = array_unique($ids);
+            $where = '"' . $recordType . '"."ID" NOT IN (' . implode(', ', $ids) . ')';
+            $records = $recordType::get()->where($where);
 
-            $sql = 'DELETE FROM ' . $recordType . ' WHERE ID NOT IN (' . implode(', ', $ids) . ')';
-            DB::query($sql);
+            foreach ($records as $record) {
+                echo "deleteing $recordType (ID=$record->ID)\n";
+                $record->delete();
+            }
+
+//            $sql = 'DELETE FROM ' . $recordType . ' WHERE ID NOT IN (' . implode(', ', $ids) . ')';
+//            DB::query($sql);
         }
     }
 
