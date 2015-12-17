@@ -5,23 +5,23 @@
  */
 class CsvDataSource extends ProxyObject implements DataSource
 {
-	/**
-	 * @param $fileName
-	 * @return mixed
-	 */
-	public static function loadFromFile($fileName)
-	{
-		$data = file_get_contents($fileName);
-		return self::loadFromString($data);
-	}
+    /**
+     * @param $fileName
+     * @return mixed
+     */
+    public static function loadFromFile($fileName)
+    {
+        $data = file_get_contents($fileName);
+        return self::loadFromString($data);
+    }
 
-	/**
-	 * @param $dataString
-	 * @return mixed
-	 */
-	public static function loadFromString($dataString)
-	{
-		$dataString = trim(str_replace(array("\r\n", "\r", "\n"), PHP_EOL, $dataString));
+    /**
+     * @param $dataString
+     * @return mixed
+     */
+    public static function loadFromString($dataString)
+    {
+        $dataString = trim(str_replace(array("\r\n", "\r", "\n"), PHP_EOL, $dataString));
 
         $rows = array();
         $row = '';
@@ -40,36 +40,36 @@ class CsvDataSource extends ProxyObject implements DataSource
             }
         }
 
-		$rows = array_map('str_getcsv', $rows);
+        $rows = array_map('str_getcsv', $rows);
 
-		if (empty($rows)) {
-			return new CsvDataSource(array());
-		}
+        if (empty($rows)) {
+            return new CsvDataSource(array());
+        }
 
-		$columns = array_shift($rows);
+        $columns = array_shift($rows);
         $columns = array_map(function ($column) {
             $column = str_replace('-', ' ', $column);
             return preg_replace('/\s+/', '', ucwords($column));
         }, $columns);
 
-		$proxyObjects = array();
+        $proxyObjects = array();
 
-		foreach ($rows as $row) {
+        foreach ($rows as $row) {
             // skip empty rows
             $content = trim(implode('', $row));
             if (!$content) {
                 continue;
             }
 
-			$proxy = new ProxyObject();
-			foreach ($columns as $key => $column) {
-				if (isset($row[$key])) {
-					$proxy->$column = $row[$key];
-				}
-			}
-			$proxyObjects[] = $proxy;
-		}
+            $proxy = new ProxyObject();
+            foreach ($columns as $key => $column) {
+                if (isset($row[$key])) {
+                    $proxy->$column = $row[$key];
+                }
+            }
+            $proxyObjects[] = $proxy;
+        }
 
-		return new CsvDataSource($proxyObjects);
-	}
+        return new CsvDataSource($proxyObjects);
+    }
 }
