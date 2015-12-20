@@ -10,7 +10,7 @@ class ImporterTestHasOneDataObject extends DataObject
      */
     private static $db = array(
         'Value' => 'Varchar(255)',
-		'OtherValue' => 'Varchar(255)',
+        'OtherValue' => 'Varchar(255)',
     );
 
     /**

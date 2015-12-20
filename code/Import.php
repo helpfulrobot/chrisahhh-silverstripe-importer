@@ -319,7 +319,7 @@ class Import
             $relationshipField = $field . 'ID';
             $dataObject->$relationshipField = $child->ID;
             $this->write($dataObject);
-        } else if ($class = $dataObject->has_many($field)) {
+        } elseif ($class = $dataObject->has_many($field)) {
             while ($values) {
                 $value = array_shift($values);
                 // HACK
@@ -387,7 +387,7 @@ class Import
                         $returnValues = array_merge($returnValues, $values);
                     }
                 }
-            } else if ($proxy->$attribute == $value) {
+            } elseif ($proxy->$attribute == $value) {
                 $values = $this->getProxyFieldValues($proxy->$field, $fieldString);
                 $returnValues = array_merge($returnValues, $values);
             }
@@ -397,7 +397,6 @@ class Import
                     $values = $this->getProxyFieldValues($option, $fieldString);
                     $returnValues = array_merge($returnValues, $values);
                 }
-
             } else {
                 $values = $this->getProxyFieldValues($proxy->$field, $fieldString);
                 $returnValues = array_merge($returnValues, $values);

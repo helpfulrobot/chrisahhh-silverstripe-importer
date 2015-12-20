@@ -188,11 +188,11 @@ class ImportTest extends SapphireTest
         $this->assertEmpty($values);
     }
 
-	/**
-	 *
+    /**
+     *
      */
-	public function testSelect_TwoChildFields_WritesBothFields()
-	{
+    public function testSelect_TwoChildFields_WritesBothFields()
+    {
         $this->assertEquals(0, ImporterTestDataObject::get()->count());
         $this->assertEquals(0, ImporterTestHasManyDataObject::get()->count());
 
@@ -200,17 +200,17 @@ class ImportTest extends SapphireTest
 
         $import = new Import('ImporterTestDataObject');
         $import->from($dataSource->Jobs[0]->Job)->select(array(
-			'Child.Value' => 'BulletPoints.BulletPoint',
-			'Child.OtherValue' => 'Title',
-		));
+            'Child.Value' => 'BulletPoints.BulletPoint',
+            'Child.OtherValue' => 'Title',
+        ));
 
-		$this->assertEquals(1, ImporterTestDataObject::get()->count());
-		$this->assertEquals(1, ImporterTestHasOneDataObject::get()->count());
+        $this->assertEquals(1, ImporterTestDataObject::get()->count());
+        $this->assertEquals(1, ImporterTestHasOneDataObject::get()->count());
 
-		$record = ImporterTestDataObject::get()->first();
-		$this->assertEquals('Thrilling Partnership', $record->Child()->Value);
-		$this->assertEquals('Sample Job', $record->Child()->OtherValue);
-	}
+        $record = ImporterTestDataObject::get()->first();
+        $this->assertEquals('Thrilling Partnership', $record->Child()->Value);
+        $this->assertEquals('Sample Job', $record->Child()->OtherValue);
+    }
 
     /**
      *
@@ -380,7 +380,7 @@ class ImportTest extends SapphireTest
         $this->assertEquals(3, $obj->Children()->Count());
 
 
-		$dataSource = XmlDataSource::loadFromFile($this->getFilePath('import-sample3.xml'));
+        $dataSource = XmlDataSource::loadFromFile($this->getFilePath('import-sample3.xml'));
         $import = new Import('ImporterTestDataObject');
         $import->from($dataSource->Jobs[0]->Job)
             ->unique('UniqueID', 'Children.Value')
